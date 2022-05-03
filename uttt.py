@@ -29,15 +29,16 @@ class UltimateTicTacToe:
     def __init__(self) -> None:
         self.action_shape = (9,9)
         self.board_shape = self.action_shape
-        self.allowed_field_size = self.action_shape[0] + 1
+        self.allowed_field_size = self.action_shape[0]
         self.reset()
 
     def reset(self):
         self.board = np.zeros(self.board_shape, dtype = np.float)
-        self.allowed_field = self.action_shape[0]
+        self.allowed_field = 0
         self.allowed_mini_boards = np.zeros(self.action_shape[0], dtype=np.int)
         self.player_turn = FieldState.FIRST.value
         self.done = False
+        self.initial = True
         return copy(self.board), self.allowed_field, self.done, 0, "Reset"
 
     def __bool__(self) -> bool:
@@ -85,14 +86,16 @@ class UltimateTicTacToe:
 
     def play(self, mini_board, field):
         if(self.done):
-            return copy(self.board), self.allowed_field, self.done, -1, "Playing finished game"
-        if(self.allowed_field != 9):
+            return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Playing finished game"
+        if(not self.initial):
             if(self.allowed_mini_boards[self.allowed_field] == FieldState.EMPTY.value and mini_board != self.allowed_field):
                 self.done = True
-                return copy(self.board), self.allowed_field, self.done, -1, "Invalid mini board"
+                return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Invalid mini board"
             if(self.allowed_mini_boards[mini_board] != FieldState.EMPTY.value):
                 self.done = True
-                return copy(self.board), self.allowed_field, self.done, -1, "Mini board already full"
+                return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Mini board already full"
+        else:
+            self.initial = False
 
         action = (
             3*(mini_board//3) + field//3,
@@ -101,7 +104,7 @@ class UltimateTicTacToe:
 
         if(self.board[action] != FieldState.EMPTY.value):
             self.done = True
-            return copy(self.board), self.allowed_field, self.done, -1, "Invalid field"
+            return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Invalid field"
 
         self.board[action] = self.player_turn
 
