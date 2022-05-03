@@ -1,3 +1,4 @@
+from ast import arg
 import numpy as np
 from copy import deepcopy as copy
 from enum import Enum, unique
@@ -56,6 +57,7 @@ class UltimateTicTacToe:
         board = add_guards(board, "".join(add_guards("-"*9, "+")))
         return "\n".join(str(row) for row in board)
 
+
     def clone(self):
         return copy(self)
 
@@ -84,7 +86,14 @@ class UltimateTicTacToe:
             return FieldState.EMPTY.value
         return FieldState.EMPTY.value
 
-    def play(self, mini_board, field):
+    def play(self, *args):
+        mini_board, field = None, None
+        if(len(args) == 2):
+            mini_board, field = args[0], args[1]
+        else:
+            a, b = args[0]//9, args[0]%9
+            mini_board = (a//3)*3 + b//3
+            field = (a%3)*3 + b%3
         if(self.done):
             return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Playing finished game"
         if(not self.initial):
