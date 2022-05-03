@@ -29,6 +29,7 @@ def add_guards(line, s):
 class UltimateTicTacToe:
     def __init__(self) -> None:
         self.action_shape = (9,9)
+        self.action_size = 81
         self.board_shape = self.action_shape
         self.allowed_field_size = self.action_shape[0]
         self.reset()
@@ -67,7 +68,7 @@ class UltimateTicTacToe:
         board = (map(str, row) for row in board)
         board = (list(row) for row in board)
         board = ("".join(row) for row in board)
-        return "".join(str(row) for row in board) + str(self.allowed_field) + str(self.player_turn)
+        return "".join(str(row) for row in board) + str(self.allowed_field) + str(FieldState(self.player_turn))
 
     def calculate_mini_winner(self, mini_board) -> int:
         for row in mini_board:
@@ -93,6 +94,20 @@ class UltimateTicTacToe:
         if (mini_board == FieldState.EMPTY.value).any().any():
             return FieldState.EMPTY.value
         return FieldState.EMPTY.value
+
+    def flip(self):
+        def change_palyer(player):
+            if player is FieldState.FIRST.value:
+                return FieldState.SECOND.value
+            if player is FieldState.SECOND.value:
+                return FieldState.FIRST.value
+            return player
+        self.player_turn = change_palyer(self.player_turn)
+        
+        self.allowed_mini_boards = np.array(list(map(change_palyer, self.allowed_mini_boards)))
+        for i in range(len(self.board)):
+            self.board[i] = np.array(list(map(change_palyer, self.board[i])))
+        return copy(self.board), self.allowed_field, self.done, 0, "Flip" 
 
     def play(self, *args):
         mini_board, field = None, None
