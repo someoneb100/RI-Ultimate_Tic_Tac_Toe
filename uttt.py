@@ -61,6 +61,14 @@ class UltimateTicTacToe:
     def clone(self):
         return copy(self)
 
+    def getCanonicalState(self) -> str:
+        board = (row for row in self.board)
+        board = (map(FieldState, row) for row in board)
+        board = (map(str, row) for row in board)
+        board = (list(row) for row in board)
+        board = ("".join(row) for row in board)
+        return "".join(str(row) for row in board) + str(self.allowed_field) + str(self.player_turn)
+
     def calculate_mini_winner(self, mini_board) -> int:
         for row in mini_board:
             if (row[0] != FieldState.EMPTY.value
