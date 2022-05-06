@@ -1,8 +1,9 @@
 from config import NUMBER_OF_MONTE_CARLO_SIMULATIONS, CPUCT, EPS
 import math
+import numpy as np
 
 class MonteCarlo():
-    def __init__(self, env, model):
+    def __init__(self, model, env):
         self.env = env.clone()
         self.model = model
         self.Qsa = {}
@@ -40,7 +41,7 @@ class MonteCarlo():
         
         # ako je novootkriveno stanje pozivamo model
         if s not in self.Ps[s]:
-            self.Ps[s], v = self.model.predict(env.board, env.allowed_field)
+            self.Ps[s], v = self.model.predict(env.board / 2, env.allowed_field / 8)
             return -v;
           
         #biramo sledecu akciju  
