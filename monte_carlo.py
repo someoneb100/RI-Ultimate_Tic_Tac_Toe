@@ -19,7 +19,7 @@ class MonteCarlo():
             if res is not None:
                 vals.append(res)
                 
-        v = sum(res)/len(res)
+        v = sum(vals)/len(vals)
         s = self.env.getCanonicalState()
         probs = np.zeros(81)
         for a in range(81):
@@ -40,9 +40,10 @@ class MonteCarlo():
         s = env.getCanonicalState()
         
         # ako je novootkriveno stanje pozivamo model
-        if s not in self.Ps[s]:
-            self.Ps[s], v = self.model.predict(env.board / 2, env.allowed_field / 8)
-            return -v;
+        if s not in self.Ps:
+            ps, v = self.model.predict([np.reshape(self.env.board/2, (1,9,9)), np.array([self.env.allowed_field/8])])
+            self.Ps[s], v = ps[0], v[0]
+            return -v
           
         #biramo sledecu akciju  
         cur_best = -float('inf')
@@ -76,7 +77,7 @@ class MonteCarlo():
             v = -reward
         else:
             #rekurzivni poziv
-            v = search(env)
+            v = self.search(env)
         if v is not None:
         #podesi nsa ns i qsa
             if (s,a) in self.Qsa:
