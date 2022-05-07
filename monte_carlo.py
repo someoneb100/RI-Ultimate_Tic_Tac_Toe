@@ -1,6 +1,18 @@
 from config import NUMBER_OF_MONTE_CARLO_SIMULATIONS, CPUCT, EPS
 import math
 import numpy as np
+from numba import vectorize, float64, int32
+
+np.seterr(invalid='ignore')
+
+@vectorize([float64(float64)], nopython=True, target="parallel")
+def get_probs(Qsa):
+    return -1 if np.isnan(Qsa) or np.isinf(Qsa) else Qsa
+
+@vectorize([float64(float64, float64, int32, int32)], nopython=True, target="parallel")
+def get_Qsa(Qsa, Ps, Nsa, Ns):
+    return CPUCT * Ps * math.sqrt(Ns + EPS) if np.isnan(Qsa) else Qsa + CPUCT * Ps*math.sqrt(Ns)/(1+Nsa)
+
 
 class MonteCarlo():
     def __init__(self, model, env):
@@ -20,17 +32,9 @@ class MonteCarlo():
                 vals.append(res)
                 
         v = sum(vals)/len(vals)
-        s = self.env.getCanonicalState()
-        probs = np.zeros(81)
-        for a in range(81):
-            if (s,a) in self.Qsa:
-                if self.Qsa[(s,a)] is not None:
-                    probs[a] = self.Qsa[(s,a)]
-                else:
-                    probs[a] = -1
-            else:
-                probs[a] = 0
-            
+        qsa = self.Qsa[self.env.getCanonicalState()]
+        probs = get_probs(qsa)
+
         probs+=1
         probs/=probs.sum()
         return probs, v
@@ -43,50 +47,35 @@ class MonteCarlo():
         if s not in self.Ps:
             ps, v = self.model.predict([np.reshape(self.env.board/2, (1,9,9)), np.array([self.env.allowed_field/8])])
             self.Ps[s], v = ps[0], v[0]
+            self.Qsa[s] = np.repeat(np.nan, 81)
+            self.Nsa[s] = np.zeros(81, dtype=np.int32)
             return -v
           
-        #biramo sledecu akciju  
-        cur_best = -float('inf')
-        best_act = -1
-        
-        for a in range(81):
-            if (s,a) in self.Qsa:
-                if self.Qsa[(s,a)] is None:
-                    continue
-                u = self.Qsa[(s,a)] + CPUCT * self.Ps[s][a]*math.sqrt(self.Ns[s])/(1+self.Nsa[(s,a)])
-            else:
-                u = CPUCT * self.Ps[s][a] * math.sqrt(self.Ns.get(s,0) + EPS)
-                
-            if u > cur_best:
-                cur_best = u
-                best_act = a
-               
-        a = best_act
+        #biramo sledecu akciju
+
+
+        a = np.nanargmax(get_Qsa(self.Qsa[s], self.Ps[s], self.Nsa[s], self.Ns.get(s, 0)))
+
         
         #"odigraj" sledeci potez
-        board, next_mini_board, reward, done, info = env.play(a)
+        _, _, reward, done, info = env.play(a)
         env.flip()
         
         #ako bi ovom akcijom usli u nevalidno stanje
         if(info.startswith('Invalid move:')):
-            self.Qsa[(s,a)] = None
-            self.Nsa[(s,a)] = 1
+            self.Qsa[s][a] = np.NINF
+            self.Nsa[s][a] = 1
             self.Ns[s] = self.Ns.get(s,0)
             return None
         elif done: #ako bi ovom akcijom usli u zavrsno stanje
-            v = -reward
+            v = reward
         else:
             #rekurzivni poziv
             v = self.search(env)
         if v is not None:
         #podesi nsa ns i qsa
-            if (s,a) in self.Qsa:
-                self.Qsa[(s,a)] = (self.Nsa[(s,a)]*self.Qsa[(s,a)] + v) / (self.Nsa[(s,a)] + 1)
-                self.Nsa[(s,a)] += 1
-            else:
-                self.Qsa[(s,a)] = v
-                self.Nsa[(s,a)] = 1
-
+            self.Qsa[s][a] = v if np.isnan(self.Qsa[s][a]) else (self.Nsa[s][a]*self.Qsa[s][a] + v) / (self.Nsa[s][a] + 1)
+            self.Nsa[s][a] += 1
             self.Ns[s] = self.Ns.get(s,0) + 1
             return -v
         

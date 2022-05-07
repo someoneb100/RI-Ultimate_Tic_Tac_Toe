@@ -37,7 +37,7 @@ class Agent:
             allowed_fields[i] = allowed_field
             probs[i] = prob
             vs[i] = v
-        env.model.fit((boards,allowed_fields),(probs,vs), batch_size = BATCH_SIZE, verbose=0, shuffle=False)
+        self.env.model.fit((boards,allowed_fields),(probs,vs), batch_size = BATCH_SIZE, verbose=0, shuffle=False)
         
         
         
