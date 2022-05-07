@@ -1,4 +1,4 @@
-from keras import models
+from tensorflow import keras
 from config import *
 from os import path
 from datetime import datetime
@@ -24,18 +24,18 @@ def save_model(model, num_wins_parent):
             FROM training_log
             WHERE current_best = true
         ''')
-        result = cur.fetch_all()
+        result = cur.fetchall()
         parent = None if len(result) == 0 else result[0][0]
         isBest = True if parent is None else num_wins_parent > 0
         cur.execute('''
             INSERT INTO training_log(timestamp, parent_timestamp,wins_against_parent, current_best) 
-            VALUES (?,?,?,?,?)
+            VALUES (?,?,?,?)
         ''', (timestamp, parent, num_wins_parent,isBest))
         con.commit()
         con.close()
         return isBest
     timestamp = str(datetime.now())    
-    isBest = log_into_db(timestamp, num_wins_parent, num_wins_partner);
+    isBest = log_into_db(timestamp, num_wins_parent)
     if isBest  or not path.isfile(BEST_MODEL_PATH):
         model.save(BEST_MODEL_PATH)
     model.save(path.join(MODELS_HISTORY_DIR, timestamp + ".h5"))

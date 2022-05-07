@@ -24,7 +24,7 @@ class Agent:
             self.env.flip()
         self.env.play(np.argmax(probs))
     
-    def train(self, terminal_state, step):
+    def train(self):
         if len(self.memory) < MIN_MEMORY_SIZE:
             return
         minibatch = random.sample(self.memory, MEMORY_SAMPLE_SIZE)
@@ -37,7 +37,7 @@ class Agent:
             allowed_fields[i] = allowed_field
             probs[i] = prob
             vs[i] = v
-        self.env.model.fit((boards,allowed_fields),(probs,vs), batch_size = BATCH_SIZE, verbose=0, shuffle=False)
+        self.model.fit((boards,allowed_fields),(probs,vs), batch_size = BATCH_SIZE, verbose=0, shuffle=False)
         
         
         
