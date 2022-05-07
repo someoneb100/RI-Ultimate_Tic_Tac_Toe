@@ -24,7 +24,7 @@ DEBUG_LOG = DL()
 
 WORK_DIR = path.abspath(path.curdir)
 MODELS_DIR = path.join(WORK_DIR, "models")
-BEST_MODEL_DIR = path.join(MODELS_DIR, "best")
+BEST_MODEL_PATH = path.join(MODELS_DIR, "best.h5")
 MODELS_HISTORY_DIR = path.join(MODELS_DIR, "history")
 MODELS_LOG_PATH = path.join(MODELS_HISTORY_DIR, "log.db")
 

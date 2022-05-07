@@ -5,18 +5,18 @@ from datetime import datetime
 import sqlite3
 
 def load_best_model():
-    if not path.isdir(BEST_MODEL_DIR):
+    if not path.isfile(BEST_MODEL_PATH):
         return None
     else: 
-        model = keras.models.load_model(BEST_MODEL_DIR)
+        model = keras.models.load_model(BEST_MODEL_PATH)
         return model
 
 def load_model(timestamp):
-    model = keras.models.load_model(path.join(MODELS_HISTORY_DIR,timestamp))
+    model = keras.models.load_model(path.join(MODELS_HISTORY_DIR,timestamp + ".h5"))
     return model
 
-def save_model(model, num_wins_parent, num_wins_partner):
-    def log_into_db(timestamp, num_wins_parent, num_wins_partner):
+def save_model(model, num_wins_parent):
+    def log_into_db(timestamp, num_wins_parent):
         con = sqlite3.connect(MODELS_LOG_PATH)
         cur = con.cursor()
         cur.execute('''
@@ -28,15 +28,15 @@ def save_model(model, num_wins_parent, num_wins_partner):
         parent = None if len(result) == 0 else result[0][0]
         isBest = True if parent is None else num_wins_parent > 0
         cur.execute('''
-            INSERT INTO training_log(timestamp,parent_timestamp,wins_against_partner,wins_against_parent, current_best) 
+            INSERT INTO training_log(timestamp, parent_timestamp,wins_against_parent, current_best) 
             VALUES (?,?,?,?,?)
-        ''', (timestamp, parent, num_wins_partner, num_wins_parent,isBest))
+        ''', (timestamp, parent, num_wins_parent,isBest))
         con.commit()
         con.close()
         return isBest
     timestamp = str(datetime.now())    
     isBest = log_into_db(timestamp, num_wins_parent, num_wins_partner);
-    if isBest  or not path.isdir(BEST_MODEL_DIR):
-        model.save(BEST_MODEL_DIR)
-    model.save(path.join(MODELS_HISTORY_DIR, timestamp))
+    if isBest  or not path.isfile(BEST_MODEL_PATH):
+        model.save(BEST_MODEL_PATH)
+    model.save(path.join(MODELS_HISTORY_DIR, timestamp + ".h5"))
     
