@@ -1,8 +1,7 @@
-from ast import arg
 import numpy as np
 from copy import deepcopy as copy
 from enum import Enum, unique
-from numba import vectorize, guvectorize, int8
+from numba import vectorize, njit, int8
 
 @unique
 class FieldState(Enum):
@@ -29,12 +28,33 @@ def change_player(player):
         return FieldState.FIRST.value
     return player
 
-# @guvectorize([(int8[:], int8[:])], "(n)->()", nopython=True)
-# def get_victor(row, res):
-#     if(np.all(row==row[0])):
-#         res[:] = row[0] if row[0] != FieldState.TIE.value else FieldState.EMPTY.value
-#     else: 
-#         res[:] = FieldState.EMPTY.value
+@njit([int8(int8[:,:])])
+def calculate_mini_winner(mini_board) -> int:
+    for i in range(3):
+        if ((mini_board[i][0] == FieldState.FIRST.value or mini_board[i][0] == FieldState.SECOND.value)
+        and np.all(mini_board[i]==mini_board[i][0])):
+            return mini_board[i][0]
+
+    mini_board = mini_board.transpose()
+    for i in range(3):
+        if ((mini_board[i][0] == FieldState.FIRST.value or mini_board[i][0] == FieldState.SECOND.value)
+        and np.all(mini_board[i]==mini_board[i][0])):
+            return mini_board[i][0]
+            
+    if(mini_board[0][0] != FieldState.EMPTY.value
+    and mini_board[0][0] != FieldState.TIE.value
+    and mini_board[0][0] == mini_board[1][1] 
+    and mini_board[1][1] == mini_board[2][2]):
+        return mini_board[0][0]
+
+    if(mini_board[2][0] != FieldState.EMPTY.value
+    and mini_board[2][0] != FieldState.TIE.value
+    and mini_board[2][0] == mini_board[1][1] 
+    and mini_board[1][1] == mini_board[0][2]):
+        return mini_board[2][0]
+    if (mini_board == FieldState.EMPTY.value).any():
+        return FieldState.EMPTY.value
+    return FieldState.TIE.value
 
 def add_guards(line, s):
     line = list(line)
@@ -84,35 +104,6 @@ class UltimateTicTacToe:
     def get_mini_field(self, i):
         return self.board[((i//3)*3):(i//3)*3+3,(i%3)*3:(i%3)*3+3]
 
-    def calculate_mini_winner(self, mini_board) -> int:
-        for row in mini_board:
-            if ((row[0] == FieldState.FIRST.value or row[0] == FieldState.SECOND.value)
-                and np.all(row==row[0])):
-                return row[0]
-        for row in mini_board.transpose():
-            if ((row[0] == FieldState.FIRST.value or row[0] == FieldState.SECOND.value)
-                and np.all(row==row[0])):
-                return row[0]
-        # winner = get_victor(self.board).max()
-        # if(winner != 0):
-        #     return winner
-        # winner = get_victor(self.board.transpose()).max()
-        # if(winner != 0):
-        #     return winner
-        if(mini_board[0][0] != FieldState.EMPTY.value
-        and mini_board[0][0] != FieldState.TIE.value
-        and mini_board[0][0] == mini_board[1][1] 
-        and mini_board[1][1] == mini_board[2][2]):
-            return mini_board[0][0]
-        if(mini_board[2][0] != FieldState.EMPTY.value
-        and mini_board[2][0] != FieldState.TIE.value
-        and mini_board[2][0] == mini_board[1][1] 
-        and mini_board[1][1] == mini_board[0][2]):
-            return mini_board[2][0]
-        if (mini_board == FieldState.EMPTY.value).any():
-            return FieldState.EMPTY.value
-        return FieldState.TIE.value
-
     def flip(self):
         self.player_turn = change_player(self.player_turn)
         self.allowed_mini_boards = change_player(self.allowed_mini_boards) #np.array(list(map(change_palyer, self.allowed_mini_boards)))
@@ -151,8 +142,8 @@ class UltimateTicTacToe:
         self.board[action] = self.player_turn
 
         small_board = self.get_mini_field(mini_board)
-        self.allowed_mini_boards[mini_board] = self.calculate_mini_winner(small_board)
-        winner = self.calculate_mini_winner(self.allowed_mini_boards.reshape((3,3)))
+        self.allowed_mini_boards[mini_board] = calculate_mini_winner(small_board)
+        winner = calculate_mini_winner(self.allowed_mini_boards.reshape((3,3)))
         self.allowed_field = field
 
         if(winner == FieldState.EMPTY.value):
