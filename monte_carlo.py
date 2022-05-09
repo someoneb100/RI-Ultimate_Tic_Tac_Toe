@@ -29,7 +29,7 @@ class MonteCarlo():
         for i in range(NUMBER_OF_MONTE_CARLO_SIMULATIONS):
             res = self.search(self.env.clone())
             if res is not None:
-                vals.append(res)
+                vals.append(-res)
                 
         v = sum(vals)/len(vals)
         qsa = self.Qsa[self.env.getCanonicalState()]

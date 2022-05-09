@@ -1,9 +1,16 @@
 from config import NUMBER_OF_EPISODES, LEARNING_RATE, DUEL_LENGTH
 import model_handler
-from uttt import UltimateTicTacToe
+from uttt import FieldState, UltimateTicTacToe
 from agent import Agent
 import tensorflow as tf
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except:
+    def tqdm(x, desc=None):
+        if desc is not None:
+            print(f"{desc}:")
+        for i in x:
+            yield i
 
 from tensorflow.keras.layers import Dense, Flatten, Reshape, Conv2D
 from tensorflow.keras.layers import Concatenate, Input
@@ -65,26 +72,34 @@ class Coach:
             self.env.reset()
             player1, player2 = (self.agent, sensei) if i%2 else (sensei, self.agent)
             while(True):
-                player1.play_action()
-                if self.env.done:
-                    score += 1 if i%2 else -1
+                res = player1.play_action()
+                if res is not FieldState.EMPTY:
+                    if res is not FieldState.TIE:
+                        if i%2:
+                            score += 1 if res is FieldState.FIRST else -1
+                        else:
+                            score += 1 if res is FieldState.SECOND else -1
                     break
-                player2.play_action()
-                if self.env.done:
-                    score -= 1 if i%2 else -1
+                res = player2.play_action()
+                if res is not FieldState.EMPTY:
+                    if res is not FieldState.TIE:
+                        if i%2:
+                            score += 1 if res is FieldState.SECOND else -1
+                        else:
+                            score += 1 if res is FieldState.FIRST else -1
                     break
                 
         return score
 
 
-    def training_session(self, episodes = NUMBER_OF_EPISODES):
+    def training_session(self, episodes = NUMBER_OF_EPISODES) -> None:
         for _ in tqdm(range(episodes), desc="Training"):
             self.env.reset()
             while(not self.env.done):
                 self.agent.play_action(training=True)
             self.agent.train()
 
-            score = self.duel()
+        score = self.duel()
         model_handler.save_model(self.agent.model, score)
         
 if __name__ == "__main__":
