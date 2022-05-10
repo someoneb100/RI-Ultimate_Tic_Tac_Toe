@@ -53,9 +53,9 @@ def save_model(model, num_wins_parent):
         parent = None if len(result) == 0 else result[0][0]
         isBest = True if parent is None else num_wins_parent > 0
         cur.execute('''
-            INSERT INTO training_log(timestamp, parent_timestamp,wins_against_parent, current_best) 
-            VALUES (?,?,?,?)
-        ''', (timestamp, parent, num_wins_parent,isBest))
+            INSERT INTO training_log(timestamp, parent_timestamp,wins_against_parent, current_best, episodes, mtcs, cpuct) 
+            VALUES (?,?,?,?,?,?,?)
+        ''', (timestamp, parent, num_wins_parent,isBest, NUMBER_OF_EPISODES, NUMBER_OF_MONTE_CARLO_SIMULATIONS, CPUCT))
         con.commit()
         con.close()
         return isBest

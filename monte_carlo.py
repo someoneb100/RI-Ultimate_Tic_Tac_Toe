@@ -3,6 +3,8 @@ import math
 import numpy as np
 from numba import vectorize, float64, int32
 
+from uttt import UltimateTicTacToe
+
 np.seterr(invalid='ignore')
 
 @vectorize([float64(float64)], nopython=True, target="parallel")
@@ -15,7 +17,7 @@ def get_Qsa(Qsa, Ps, Nsa, Ns):
 
 
 class MonteCarlo():
-    def __init__(self, model, env):
+    def __init__(self, model, env: UltimateTicTacToe):
         self.env = env.clone()
         self.model = model
         self.Qsa = {}
@@ -23,7 +25,7 @@ class MonteCarlo():
         self.Ns = {}
         self.Ps = {}
     
-    def getActionProb(self):
+    def getActionProb(self) -> "tuple[np.ndarray, np.float64]":
         
         vals = []
         for i in range(NUMBER_OF_MONTE_CARLO_SIMULATIONS):
@@ -45,7 +47,7 @@ class MonteCarlo():
         
         # ako je novootkriveno stanje pozivamo model
         if s not in self.Ps:
-            ps, v = self.model.predict([np.reshape(self.env.board/2, (1,9,9)), np.array([self.env.allowed_field/8])])
+            ps, v = self.model.predict([np.reshape(self.env.board, (1,9,9)), np.reshape(self.env.get_categorical_allowed_field(), (1,9))])
             self.Ps[s], v = ps[0], v[0]
             self.Qsa[s] = np.repeat(np.nan, 81)
             self.Nsa[s] = np.zeros(81, dtype=np.int32)
@@ -58,7 +60,7 @@ class MonteCarlo():
 
         
         #"odigraj" sledeci potez
-        _, _, reward, done, info = env.play(a)
+        reward, info = env.play(a)
         env.flip()
         
         #ako bi ovom akcijom usli u nevalidno stanje
@@ -67,7 +69,7 @@ class MonteCarlo():
             self.Nsa[s][a] = 1
             self.Ns[s] = self.Ns.get(s,0)
             return None
-        elif done: #ako bi ovom akcijom usli u zavrsno stanje
+        elif env.done: #ako bi ovom akcijom usli u zavrsno stanje
             v = reward
         else:
             #rekurzivni poziv

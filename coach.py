@@ -1,8 +1,8 @@
+from sklearn import metrics
 from config import NUMBER_OF_EPISODES, LEARNING_RATE, DUEL_LENGTH
 import model_handler
 from uttt import FieldState, UltimateTicTacToe
 from agent import Agent
-import tensorflow as tf
 try:
     from tqdm import tqdm
 except:
@@ -18,41 +18,43 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 import numpy as np
 
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
 def test_model(learning_rate = LEARNING_RATE):
     board = Input(shape=(9,9), name="board_input")
-    miniboard = Input(shape=(1,), name="allowed_mini_board_input")
+    miniboard = Input(shape=(9,), name="allowed_mini_board_input")
     
     reshape_board = Reshape((9,9,1), name="reshape_board")(board)
-    c1 = Conv2D(128, (3,3), strides=(3,3), activation="relu", kernel_initializer="glorot_normal", name="board_conv_1")(reshape_board)
+    c1 = Conv2D(256, (3,3), strides=(3,3), activation="relu", kernel_initializer="glorot_normal", name="board_conv_1")(reshape_board)
     c2 = Conv2D(128, (3,3), padding="same", activation="relu", kernel_initializer="glorot_normal", name="board_conv_2")(c1)
     c3 = Conv2D(128, (3,3), activation="relu", kernel_initializer="glorot_normal", name="board_conv_3")(c2)
     flat = Flatten(name="flatten_board")(c3)
     
     concat = Concatenate(name="concat_board_and_allowed_mini_board")([flat, miniboard])
-    d1 = Dense(256, activation="relu", kernel_initializer="glorot_normal", name="dense_1")(concat)
-    d2 = Dense(128, activation="relu", kernel_initializer="glorot_normal", name="dense_2")(d1)
-    d3 = Dense(64, activation="relu", kernel_initializer="glorot_normal", name="dense_3")(d2)
+    d1 = Dense(512, activation="relu", kernel_initializer="glorot_normal", name="dense_1")(concat)
+    d2 = Dense(256, activation="relu", kernel_initializer="glorot_normal", name="dense_2")(d1)
+    d3 = Dense(128, activation="relu", kernel_initializer="glorot_normal", name="dense_3")(d2)
     
     probs = Dense(81, activation="softmax", name="output_action_probabilities")(d3)
     v = Dense(1, activation="tanh", name="output_board_value")(d3)
     
     model = Model(inputs=[board, miniboard], outputs=[probs,v])
-    model.compile(loss=["categorical_crossentropy", "mean_squared_error"], optimizer=Adam(learning_rate))
+    model.compile(loss=["categorical_crossentropy", "mean_squared_error"], optimizer=Adam(learning_rate), metrics = ["accuracy"])
     return model
 
 class Coach:
     def __init__(self, model=None):
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-            try:
-                # Currently, memory growth needs to be the same across GPUs
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                logical_gpus = tf.config.experimental.list_logical_devices('GPU')
-                print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-            except RuntimeError as e:
-                # Memory growth must be set before GPUs have been initialized
-                print(e)
         if model is None:
             model = model_handler.load_best_model()
         elif type(model) == type(""):
@@ -103,5 +105,5 @@ class Coach:
         model_handler.save_model(self.agent.model, score)
         
 if __name__ == "__main__":
-    coach = Coach()
+    coach = Coach(model_handler.load_newest_model())
     coach.training_session()

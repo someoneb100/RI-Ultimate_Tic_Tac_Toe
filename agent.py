@@ -2,33 +2,30 @@ from collections import deque
 from monte_carlo import MonteCarlo
 from copy import deepcopy
 from config import MEMORY_SIZE, MIN_MEMORY_SIZE, MEMORY_SAMPLE_SIZE, BATCH_SIZE
-import random
+from random import sample
 import numpy as np
-from uttt import FieldState, change_player
-
-from config import DEBUG_LOG
+from uttt import FieldState, UltimateTicTacToe, change_player
 
 class Agent:
-    def __init__(self, model, env):
+    def __init__(self, model, env: UltimateTicTacToe):
         self.model = model
         self.env = env
         self.memory = deque(maxlen=MEMORY_SIZE)
         self.target_update_counter = 0 #pratimo kad je vreme da updateujemo target_model
         
-    def play_action(self, training = False) -> FieldState:
+    def play_action(self, training: bool = False) -> FieldState:
         should_flip = False
-        if self.env.player_turn == 2:
+        if self.env.player_turn == FieldState.SECOND.value:
             should_flip = True
             self.env.flip()
         probs, v = MonteCarlo(self.model,self.env).getActionProb()
 
         if training :
-            self.memory.append((self.env.board / 2, self.env.allowed_field / 8, probs, v))   
+            self.memory.append((self.env.board, self.env.get_categorical_allowed_field(), probs, v))   
         if should_flip:
             self.env.flip()
-        _, _, done, reward, info = self.env.play(np.argmax(probs))
-        DEBUG_LOG.write(f"player {1 if self.env.player_turn == 2 else 2}\nprobs:\n{probs}\nv: {v}, info: {info}")
-        if not done:
+        reward, _ = self.env.play(np.argmax(probs))
+        if not self.env.done:
             return FieldState.EMPTY
         if reward == 0:
             return FieldState.TIE
@@ -36,12 +33,12 @@ class Agent:
             return FieldState(self.env.player_turn)
         return FieldState(change_player(self.env.player_turn))
     
-    def train(self):
+    def train(self) -> None:
         if len(self.memory) < MIN_MEMORY_SIZE:
             return
-        minibatch = random.sample(self.memory, MEMORY_SAMPLE_SIZE)
-        boards = np.empty((MEMORY_SAMPLE_SIZE,9,9),dtype=np.float64)
-        allowed_fields = np.empty((MEMORY_SAMPLE_SIZE,),dtype=np.float64)
+        minibatch = sample(self.memory, MEMORY_SAMPLE_SIZE)
+        boards = np.empty((MEMORY_SAMPLE_SIZE,9,9),dtype=np.int8)
+        allowed_fields = np.empty((MEMORY_SAMPLE_SIZE,9),dtype=np.int8)
         probs = np.empty((MEMORY_SAMPLE_SIZE,81),dtype=np.float64)
         vs = np.empty((MEMORY_SAMPLE_SIZE,),dtype=np.float64)
         for i, (board, allowed_field, prob, v) in enumerate(minibatch):

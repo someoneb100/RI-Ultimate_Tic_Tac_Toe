@@ -1,19 +1,19 @@
 import numpy as np
 from copy import deepcopy as copy
 from enum import Enum, unique
-from numba import vectorize, njit, int8
+from numba import vectorize, njit, int8, boolean
 
 @unique
 class FieldState(Enum):
     EMPTY = np.int8(0)
     FIRST = np.int8(1)
-    SECOND = np.int8(2)
-    TIE = np.int8(3)
+    SECOND = np.int8(-1)
+    TIE = np.int8(2)
 
-    def __int__(self):
+    def __int__(self) -> int:
         return self.value
 
-    def __str__(self):
+    def __str__(self) -> str:
         if(self is FieldState.FIRST):
             return "X"        
         if(self is FieldState.SECOND):
@@ -21,10 +21,10 @@ class FieldState(Enum):
         return " "
 
 @vectorize([int8(int8)], nopython=True)
-def change_player(player):
-    if player is FieldState.FIRST.value:
+def change_player(player: int) -> int:
+    if player == FieldState.FIRST.value:
         return FieldState.SECOND.value
-    if player is FieldState.SECOND.value:
+    if player == FieldState.SECOND.value:
         return FieldState.FIRST.value
     return player
 
@@ -56,6 +56,13 @@ def calculate_mini_winner(mini_board) -> int:
         return FieldState.EMPTY.value
     return FieldState.TIE.value
 
+@njit([int8[:](boolean, int8)])
+def categorical_allowed_field(initial: bool, i: int):
+    res = np.zeros(9, dtype=np.int8)
+    if not initial:
+        res[i] = 1
+    return res
+
 def add_guards(line, s):
     line = list(line)
     line.insert(6, s)
@@ -70,14 +77,13 @@ class UltimateTicTacToe:
         self.allowed_field_size = self.action_shape[0]
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         self.board = np.zeros(self.board_shape, dtype = np.int8)
         self.allowed_field = 0
         self.allowed_mini_boards = np.zeros(self.action_shape[0], dtype=np.int8)
         self.player_turn = FieldState.FIRST.value
         self.done = False
         self.initial = True
-        return copy(self.board), self.allowed_field, self.done, 0, "Reset"
 
     def __bool__(self) -> bool:
         return self.done
@@ -94,23 +100,24 @@ class UltimateTicTacToe:
         board = add_guards(board, "".join(add_guards("-"*9, "+")))
         return "\n".join(str(row) for row in board)
 
+    def get_categorical_allowed_field(self) -> np.ndarray:
+        return categorical_allowed_field(self.initial, self.allowed_field)
 
-    def clone(self):
+    def clone(self) -> "UltimateTicTacToe":
         return copy(self)
 
     def getCanonicalState(self) -> bytes:
         return np.concatenate((np.concatenate(self.board), np.int8([self.allowed_field]), np.int8([self.player_turn]))).tobytes()
 
-    def get_mini_field(self, i):
+    def get_mini_field(self, i: int) -> np.ndarray:
         return self.board[((i//3)*3):(i//3)*3+3,(i%3)*3:(i%3)*3+3]
 
-    def flip(self):
+    def flip(self) -> None:
         self.player_turn = change_player(self.player_turn)
         self.allowed_mini_boards = change_player(self.allowed_mini_boards) #np.array(list(map(change_palyer, self.allowed_mini_boards)))
         self.board = change_player(self.board)
-        return copy(self.board), self.allowed_field, self.done, 0, "Flip" 
 
-    def play(self, *args):
+    def play(self, *args) -> "tuple[int,str]":
         mini_board, field = None, None
         if(len(args) == 2):
             mini_board, field = args[0], args[1]
@@ -119,14 +126,14 @@ class UltimateTicTacToe:
             mini_board = (a//3)*3 + b//3
             field = (a%3)*3 + b%3
         if(self.done):
-            return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Playing finished game"
+            return -1, "Invalid move: Playing finished game"
         if(not self.initial):
             if(self.allowed_mini_boards[self.allowed_field] != FieldState.EMPTY.value and self.allowed_mini_boards[mini_board] != FieldState.EMPTY.value):
                 self.done = True
-                return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Mini board is already complete"
+                return -1, "Invalid move: Mini board is already complete"
             if(self.allowed_mini_boards[self.allowed_field] == FieldState.EMPTY.value and mini_board != self.allowed_field):
                 self.done = True
-                return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Invalid mini board"
+                return -1, "Invalid move: Invalid mini board"
         else:
             self.initial = False
 
@@ -137,7 +144,7 @@ class UltimateTicTacToe:
 
         if(self.board[action] != FieldState.EMPTY.value):
             self.done = True
-            return copy(self.board), self.allowed_field, self.done, -1, "Invalid move: Invalid field"
+            return -1, "Invalid move: Invalid field"
 
         self.board[action] = self.player_turn
 
@@ -148,10 +155,10 @@ class UltimateTicTacToe:
 
         if(winner == FieldState.EMPTY.value):
             self.player_turn = change_player(self.player_turn)
-            return copy(self.board), self.allowed_field, self.done, 0, "Valid" 
+            return 0, "Valid" 
         self.done = True
         if(winner == FieldState.TIE.value):
-            return copy(self.board), self.allowed_field, self.done, 0, "Tie"
+            return 0, "Tie"
         if(winner == self.player_turn):
-            return copy(self.board), self.allowed_field, self.done, 1, f"Player {self.player_turn} wins"
-        return copy(self.board), self.allowed_field, self.done, -1, f"Player {self.player_turn} loses"
+            return 1, f"Player {self.player_turn} wins"
+        return -1, f"Player {self.player_turn} loses"
