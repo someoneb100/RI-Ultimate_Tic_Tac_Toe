@@ -1,9 +1,9 @@
-from config import NUMBER_OF_MONTE_CARLO_SIMULATIONS, CPUCT, EPS
-import math
 import numpy as np
 from numba import vectorize, float64, int32
 
+from config_client import NUMBER_OF_MONTE_CARLO_SIMULATIONS, CPUCT, EPS
 from uttt import UltimateTicTacToe
+from predictor_client import PredictorClient
 
 np.seterr(invalid='ignore')
 
@@ -13,11 +13,11 @@ def get_probs(Qsa):
 
 @vectorize([float64(float64, float64, int32, int32)], nopython=True, target="parallel")
 def get_Qsa(Qsa, Ps, Nsa, Ns):
-    return CPUCT * Ps * math.sqrt(Ns + EPS) if np.isnan(Qsa) else Qsa + CPUCT * Ps*math.sqrt(Ns)/(1+Nsa)
+    return CPUCT * Ps * np.sqrt(Ns + EPS) if np.isnan(Qsa) else Qsa + CPUCT * Ps*np.sqrt(Ns)/(1+Nsa)
 
 
 class MonteCarlo():
-    def __init__(self, model, env: UltimateTicTacToe):
+    def __init__(self, model: PredictorClient, env: UltimateTicTacToe):
         self.env = env.clone()
         self.model = model
         self.Qsa = {}
@@ -47,8 +47,7 @@ class MonteCarlo():
         
         # ako je novootkriveno stanje pozivamo model
         if s not in self.Ps:
-            ps, v = self.model.predict([np.reshape(self.env.board, (1,9,9)), np.reshape(self.env.get_categorical_allowed_field(), (1,9))])
-            self.Ps[s], v = ps[0], v[0]
+            self.Ps[s], v = self.model.predict(self.env.board, self.env.get_categorical_allowed_field())
             self.Qsa[s] = np.repeat(np.nan, 81)
             self.Nsa[s] = np.zeros(81, dtype=np.int32)
             return -v
