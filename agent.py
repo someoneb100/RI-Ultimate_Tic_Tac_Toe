@@ -1,7 +1,7 @@
 from collections import deque
 from monte_carlo import MonteCarlo
 from copy import deepcopy
-from config import MEMORY_SIZE, MIN_MEMORY_SIZE, MEMORY_SAMPLE_SIZE, BATCH_SIZE
+from config import MEMORY_SIZE, MIN_MEMORY_SIZE, MEMORY_SAMPLE_SIZE, BATCH_SIZE, EPS
 from random import sample
 import numpy as np
 from uttt import FieldState, UltimateTicTacToe, change_player
@@ -24,7 +24,10 @@ class Agent:
             self.memory.append((self.env.board, self.env.get_categorical_allowed_field(), probs, v))   
         if should_flip:
             self.env.flip()
-        reward, _ = self.env.play(np.argmax(probs))
+        # epsilon udaljena slucajnost
+        probsmax = probs.max()
+        choices = np.arange(len(probs))[np.abs(probs-probsmax)<=EPS]
+        reward, _ = self.env.play(np.random.choice(choices))
         if not self.env.done:
             return FieldState.EMPTY
         if reward == 0:

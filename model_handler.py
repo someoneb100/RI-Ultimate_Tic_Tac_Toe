@@ -11,8 +11,14 @@ def load_best_model():
         model = keras.models.load_model(BEST_MODEL_PATH)
         return model
 
-def load_model(timestamp):
-    return keras.models.load_model(path.join(MODELS_HISTORY_DIR, timestamp + ".h5"))
+def load_model(timestamp = None):
+    if timestamp is None:
+        return None
+    p = path.join(MODELS_HISTORY_DIR, timestamp + ".h5");
+    if not path.isfile(p):
+        return None
+    else: 
+        return keras.models.load_model(p)
 
 def load_parent_model(timestamp):
     con = sqlite3.connect(MODELS_LOG_PATH)
@@ -22,10 +28,12 @@ def load_parent_model(timestamp):
         FROM training_log
         where timestamp = ?
     ''', (timestamp,))
-    parent = cur.fetchall()[0][0]
+    parent = cur.fetchall()
     cur.close()
     con.close()
-    return load_model(parent)
+    if len(parent) == 0:
+        return None
+    return load_model(parent[0][0])
 
 def load_newest_model():
     con = sqlite3.connect(MODELS_LOG_PATH)
@@ -34,11 +42,12 @@ def load_newest_model():
         SELECT max(timestamp)
         FROM training_log
     ''')
-    timestamp = cur.fetchall()[0][0]
+    timestamp = cur.fetchall()
     cur.close()
     con.close()
-
-    return load_model(timestamp)
+    if len(timestamp) == 0:
+        return None
+    return load_model(timestamp[0][0])
 
 def save_model(model, num_wins_parent):
     def log_into_db(timestamp, num_wins_parent):

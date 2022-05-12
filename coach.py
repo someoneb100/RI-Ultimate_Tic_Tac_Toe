@@ -1,12 +1,11 @@
-from sklearn import metrics
 from config import NUMBER_OF_EPISODES, LEARNING_RATE, DUEL_LENGTH
 import model_handler
 from uttt import FieldState, UltimateTicTacToe
 from agent import Agent
 try:
-    from tqdm import tqdm
+    from tqdm import trange
 except:
-    def tqdm(x, desc=None):
+    def trange(x, desc=None):
         if desc is not None:
             print(f"{desc}:")
         for i in x:
@@ -69,33 +68,38 @@ class Coach:
         if sensei is None:
             return 0
         sensei = Agent(sensei, self.env)
-        score = 0
-        for i in tqdm(range(DUEL_LENGTH), desc="Dueling"):
-            self.env.reset()
-            player1, player2 = (self.agent, sensei) if i%2 else (sensei, self.agent)
-            while(True):
-                res = player1.play_action()
-                if res is not FieldState.EMPTY:
-                    if res is not FieldState.TIE:
-                        if i%2:
-                            score += 1 if res is FieldState.FIRST else -1
+        sensei.score, self.agent.score, tie = 0, 0, 0
+        with trange(DUEL_LENGTH) as pbar:
+            for i in pbar:
+                pbar.set_description(f"Training: win={self.agent.score}; loss={sensei.score}; tie={tie}")
+                self.env.reset()
+                player1, player2 = (self.agent, sensei) if i%2 else (sensei, self.agent)
+                while(True):
+                    res = player1.play_action()
+                    if res is not FieldState.EMPTY:
+                        if res is not FieldState.TIE:
+                            if res is FieldState.FIRST:
+                                player1.score += 1
+                            else:
+                                player2.score += 1
                         else:
-                            score += 1 if res is FieldState.SECOND else -1
-                    break
-                res = player2.play_action()
-                if res is not FieldState.EMPTY:
-                    if res is not FieldState.TIE:
-                        if i%2:
-                            score += 1 if res is FieldState.SECOND else -1
+                            tie += 1
+                        break
+                    res = player2.play_action()
+                    if res is not FieldState.EMPTY:
+                        if res is not FieldState.TIE:
+                            if res is FieldState.SECOND:
+                                player2.score += 1
+                            else:
+                                player1.score += 1
                         else:
-                            score += 1 if res is FieldState.FIRST else -1
-                    break
-                
-        return score
+                            tie += 1
+                        break
+        return self.agent.score - sensei.score
 
 
     def training_session(self, episodes = NUMBER_OF_EPISODES) -> None:
-        for _ in tqdm(range(episodes), desc="Training"):
+        for _ in trange(episodes, desc="Training"):
             self.env.reset()
             while(not self.env.done):
                 self.agent.play_action(training=True)
