@@ -130,3 +130,8 @@ dmypy.json
 
 # Model history
 models/history/
+
+
+*.ipynb
+my_p.py
+debug_log.txt
