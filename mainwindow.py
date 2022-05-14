@@ -12,6 +12,19 @@ from uttt import UltimateTicTacToe, FieldState, change_player
 from model_handler import load_newest_model, load_best_model
 from agent import Agent
 
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+        print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
+
 
 GAP = 4
 BOARD_SIZE = 600
@@ -25,22 +38,20 @@ class GameMode(Enum):
     MVU = 2
     UVM = 3
 
-env = UltimateTicTacToe()
-game_mode = GameMode.NOT_CHOSEN
-user = FieldState.EMPTY.value
-
 
 
 class Field (QGraphicsItem):
-    def __init__(self, parent):
+    def __init__(self, parent, index):
         super().__init__()
         self.setParentItem(parent)
         self.state = FieldState.EMPTY.value
-        self.index_in_miniboard = -1
+        self.index_in_miniboard = index
         self.parent = parent
 
     def mousePressEvent(self, event):
-        global env, game_mode, user
+        env = self.parent.parent.env
+        game_mode = self.parent.parent.game_mode
+        user = self.parent.parent.user
         super().mousePressEvent(event)
         if not env.done:
             if (game_mode == GameMode.UVM or game_mode == GameMode.MVU):
@@ -51,9 +62,9 @@ class Field (QGraphicsItem):
                             self.state = env.player_turn
                             env.play(self.parent.index_in_board, self.index_in_miniboard)
                             if env.allowed_mini_boards[self.parent.index_in_board] == FieldState.FIRST.value:
-                                parent.state = FieldState.FIRST.value
+                                self.parent.state = FieldState.FIRST.value
                             elif env.allowed_mini_boards[self.parent.index_in_board] == FieldState.SECOND.value:
-                                parent.state = FieldState.SECOND.value
+                                self.parent.state = FieldState.SECOND.value
                             if env.done:
                                 print("done")
                                 self.update()
@@ -76,18 +87,13 @@ class Field (QGraphicsItem):
 
 
 class MiniBoard (QGraphicsItem):
-    def __init__(self, parent):
+    def __init__(self, parent, index):
         super().__init__()
         self.setParentItem(parent)
-        self.fields = [
-            [Field(self), Field(self), Field(self)],
-            [Field(self), Field(self), Field(self)],
-            [Field(self), Field(self), Field(self)]
-        ]
-        for i in range(3):
-            for j in range(3):
-                self.fields[i][j].index_in_minifield = i*3 + j
-        self.index_in_board = -1
+        self.fields = []
+        for i in range(9):
+            self.fields.append(Field(self, i))
+        self.index_in_board = index
         self.parent = parent
         self.state = FieldState.EMPTY.value
 
@@ -116,7 +122,7 @@ class MiniBoard (QGraphicsItem):
         )
         for i in range(3):
             for j in range(3):
-                self.fields[i][j].setPos(
+                self.fields[3*i + j].setPos(
                     GAP + FIELD_SIZE*i + GAP*i,
                     GAP + FIELD_SIZE*j + GAP*j
                 )
@@ -130,34 +136,55 @@ class MiniBoard (QGraphicsItem):
 class Board (QGraphicsItem):
     def __init__(self):
         super().__init__()
-        self.mini_boards = [
-            [MiniBoard(self), MiniBoard(self), MiniBoard(self)],
-            [MiniBoard(self), MiniBoard(self), MiniBoard(self)],
-            [MiniBoard(self), MiniBoard(self), MiniBoard(self)]
-        ]
-        for i in range(3):
-            for j in range(3):
-                self.mini_boards[i][j].index_in_board = i*3 + j
+        self.mini_boards = []
+        for i in range(9):
+            self.mini_boards.append(MiniBoard(self, i))
+        self.env = UltimateTicTacToe()
+        self.game_mode = GameMode.NOT_CHOSEN
+        self.user = FieldState.EMPTY.value
+        self.agent = None
 
     def boundingRect(self):
         return QRectF(0, 0, BOARD_SIZE, BOARD_SIZE)
 
     def model_play(self):
-        global env, game_mode, user, agent
-        agent.play_action()
-        action = agent.action
-        a, b = action//9, action%9
+        self.agent.play_action()
+        action = self.agent.action
+        a, b = action//9, action % 9
         mb = (a//3)*3 + b//3
-        f = (a%3)*3 + b%3
-        turn = change_player(user)
-        self.mini_boards[mb/3,mb%3].fields[f/3,f%3].state = turn
-        if env.allowed_mini_boards[mb] == FieldState.FIRST.value:
-            self.mini_boards[mb/3,mb%3].state = FieldState.FIRST.value
-        elif env.allowed_mini_boards[mb] == FieldState.SECOND.value:
-            self.mini_boards[mb/3,mb%3].state = FieldState.SECOND.value
-        if env.done:
+        f = (a % 3)*3 + b % 3
+        turn = change_player(self.user)
+        self.mini_boards[mb].fields[f].state = turn
+        if self.env.allowed_mini_boards[mb] == FieldState.FIRST.value:
+            self.mini_boards[mb].state = FieldState.FIRST.value
+        elif self.env.allowed_mini_boards[mb] == FieldState.SECOND.value:
+            self.mini_boards[mb].state = FieldState.SECOND.value
+        if self.env.done:
             print("done")
-        self.mini_boards[mb/3,mb%3].fields[f/3,f%3].update()
+        self.mini_boards[mb].fields[f].update()
+
+
+    def Model_Vs_Model(self):
+        self.game_mode = GameMode.MVM
+        self.env.reset()
+        newest = load_newest_model()
+        best = load_best_model()
+
+
+    def Model_Vs_User(self):
+        self.env.reset()
+        self.game_mode = GameMode.MVU
+        self.user = FieldState.SECOND.value
+        model = load_best_model()
+        self.agent = Agent(model, self.env)
+
+
+    def User_Vs_Model(self):
+        self.env.reset()
+        self.game_mode = GameMode.UVM
+        self.user = FieldState.FIRST.value
+        model = load_best_model()
+        self.agent = Agent(model, self.env)
 
     def paint(self, painter, option, widget):
         painter.fillRect(self.boundingRect(), QColor(200, 200, 200))
@@ -180,7 +207,7 @@ class Board (QGraphicsItem):
         )
         for i in range(3):
             for j in range(3):
-                self.mini_boards[i][j].setPos(
+                self.mini_boards[3*i + j].setPos(
                     GAP + MINIBOARD_SIZE*i + GAP*i,
                     GAP + MINIBOARD_SIZE*j + GAP*j
                 )
@@ -193,42 +220,15 @@ class mainGraphicsScene(QGraphicsScene):
         self.addItem(self.board)
 
 
-def Model_Vs_Model():
-    global env, game_mode, user
-    game_mode = GameMode.MVM
-    env.reset()
-    newest = load_newest_model()
-    best = load_best_model()
-
-
-def Model_Vs_User():
-    global env, game_mode, user
-    env.reset()
-    game_mode = GameMode.MVU
-    user = FieldState.SECOND.value
-    model = load_best_model()
-    agent = Agent(model, env)
-
-
-def User_Vs_Model():
-    global env, game_mode, user, agent
-    env.reset()
-    game_mode = GameMode.UVM
-    user = FieldState.FIRST.value
-    model = load_best_model()
-    agent = Agent(model, env)
-
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
         self.ui = QUiLoader().load("form.ui")
         self.scene = mainGraphicsScene()
         self.ui.mainGV.setScene(self.scene)
-        self.ui.action_model_vs_model.triggered.connect(Model_Vs_Model)
-        self.ui.action_model_X_vs_user_O.triggered.connect(Model_Vs_User)
-        self.ui.action_user_X_vs_model_O.triggered.connect(User_Vs_Model)
+        self.ui.action_model_vs_model.triggered.connect(self.scene.board.Model_Vs_Model)
+        self.ui.action_model_X_vs_user_O.triggered.connect(self.scene.board.Model_Vs_User)
+        self.ui.action_user_X_vs_model_O.triggered.connect(self.scene.board.User_Vs_Model)
         self.setMouseTracking(True)
 
 
