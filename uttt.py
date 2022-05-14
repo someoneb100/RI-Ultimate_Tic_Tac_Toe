@@ -63,6 +63,10 @@ def categorical_allowed_field(initial: bool, i: int):
         res[i] = 1
     return res
 
+@njit([int8[:,:](int8[:,:], int8)])
+def get_mini_board(board, i):
+    return board[((i//3)*3):(i//3)*3+3,(i%3)*3:(i%3)*3+3]
+
 def add_guards(line, s):
     line = list(line)
     line.insert(6, s)
@@ -110,7 +114,20 @@ class UltimateTicTacToe:
         return np.concatenate((np.concatenate(self.board), np.int8([self.allowed_field]), np.int8([self.player_turn]))).tobytes()
 
     def get_mini_field(self, i: int) -> np.ndarray:
-        return self.board[((i//3)*3):(i//3)*3+3,(i%3)*3:(i%3)*3+3]
+        return get_mini_board(self.board, i)
+
+    def get_valid_actions(self) -> np.ndarray:
+        if self.done:
+            return np.empty(0, dtype=np.int8)
+        if self.initial:
+            return np.arange(81, dtype=np.int8)
+        potential = np.arange((9,9), dtype=np.int8)
+        if(self.allowed_mini_boards[self.allowed_field] != FieldState.EMPTY.value):
+            return np.concatenate(potential[self.board==FieldState.EMPTY.value], dtype=np.int8)
+        potential = get_mini_board(potential, self.allowed_field)
+        mb = self.get_mini_field(self.allowed_field)
+        return np.concatenate(potential[mb==FieldState.EMPTY.value], dtype=np.int8)
+
 
     def flip(self) -> None:
         self.player_turn = change_player(self.player_turn)
