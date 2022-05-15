@@ -121,12 +121,12 @@ class UltimateTicTacToe:
             return np.empty(0, dtype=np.int8)
         if self.initial:
             return np.arange(81, dtype=np.int8)
-        potential = np.arange((9,9), dtype=np.int8)
+        potential = np.arange(81, dtype=np.int8).reshape((9,9))
         if(self.allowed_mini_boards[self.allowed_field] != FieldState.EMPTY.value):
-            return np.concatenate(potential[self.board==FieldState.EMPTY.value], dtype=np.int8)
+            return potential[self.board==FieldState.EMPTY.value]
         potential = get_mini_board(potential, self.allowed_field)
         mb = self.get_mini_field(self.allowed_field)
-        return np.concatenate(potential[mb==FieldState.EMPTY.value], dtype=np.int8)
+        return potential[mb==FieldState.EMPTY.value]
 
 
     def flip(self) -> None:
