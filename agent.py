@@ -12,18 +12,15 @@ class Agent:
         self.env = env
         self.memory = deque(maxlen=MEMORY_SIZE)
         self.target_update_counter = 0 #pratimo kad je vreme da updateujemo target_model
-        self.random = True
         
     def play_action(self, training: bool = False) -> FieldState:
-        self.random = self.random if training else False
         should_flip = False
         if self.env.player_turn == FieldState.SECOND.value:
             should_flip = True
             self.env.flip()
 
-        if(not self.random or np.random.rand() > RANDOM_FACTOR):
+        if(np.random.rand() > RANDOM_FACTOR):
             probs, v = MonteCarlo(self.model,self.env).getActionProb()
-
             if training :
                 self.memory.append((self.env.board, self.env.get_categorical_allowed_field(), probs, v))   
             if should_flip:
@@ -43,9 +40,8 @@ class Agent:
         return FieldState(change_player(self.env.player_turn))
     
     def train(self) -> None:
-        if self.random and len(self.memory) < MIN_MEMORY_SIZE:
+        if len(self.memory) < MIN_MEMORY_SIZE:
             return
-        self.random = False
         minibatch = sample(self.memory, MEMORY_SAMPLE_SIZE)
         boards = np.empty((MEMORY_SAMPLE_SIZE,9,9),dtype=np.int8)
         allowed_fields = np.empty((MEMORY_SAMPLE_SIZE,9),dtype=np.int8)

@@ -135,3 +135,4 @@ models/history/
 *.ipynb
 my_p.py
 debug_log.txt
+p.txt

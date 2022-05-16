@@ -67,6 +67,7 @@ def categorical_allowed_field(initial: bool, i: int):
 def get_mini_board(board, i):
     return board[((i//3)*3):(i//3)*3+3,(i%3)*3:(i%3)*3+3]
 
+
 def add_guards(line, s):
     line = list(line)
     line.insert(6, s)
@@ -119,9 +120,10 @@ class UltimateTicTacToe:
     def get_valid_actions(self) -> np.ndarray:
         if self.done:
             return np.empty(0, dtype=np.int8)
+        potential = np.arange(81, dtype=np.int8)
         if self.initial:
-            return np.arange(81, dtype=np.int8)
-        potential = np.arange(81, dtype=np.int8).reshape((9,9))
+            return potential
+        potential = potential.reshape((9,9))
         if(self.allowed_mini_boards[self.allowed_field] != FieldState.EMPTY.value):
             return potential[self.board==FieldState.EMPTY.value]
         potential = get_mini_board(potential, self.allowed_field)

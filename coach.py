@@ -1,4 +1,4 @@
-from config import NUMBER_OF_EPISODES, LEARNING_RATE, DUEL_LENGTH
+from config import NUMBER_OF_EPISODES, LEARNING_RATE, DUEL_LENGTH, GAMES_PER_TRAINING, TRAINING_EPISODES
 import model_handler
 from uttt import FieldState, UltimateTicTacToe
 from agent import Agent
@@ -99,11 +99,13 @@ class Coach:
 
 
     def training_session(self, episodes = NUMBER_OF_EPISODES) -> None:
-        for _ in trange(episodes, desc="Training"):
+        for i in trange(episodes, desc="Training"):
             self.env.reset()
             while(not self.env.done):
                 self.agent.play_action(training=True)
-            self.agent.train()
+            if(i%GAMES_PER_TRAINING) == (GAMES_PER_TRAINING - 1):
+                for _ in range(TRAINING_EPISODES):
+                    self.agent.train()
 
         score = self.duel()
         model_handler.save_model(self.agent.model, score)
