@@ -70,8 +70,8 @@ class Coach:
         sensei = Agent(sensei, self.env)
         sensei.score, self.agent.score, tie = 0, 0, 0
         with trange(DUEL_LENGTH) as pbar:
+            pbar.set_description(f"Training: win={self.agent.score}; loss={sensei.score}; tie={tie}")
             for i in pbar:
-                pbar.set_description(f"Training: win={self.agent.score}; loss={sensei.score}; tie={tie}")
                 self.env.reset()
                 player1, player2 = (self.agent, sensei) if i%2 else (sensei, self.agent)
                 while(True):
@@ -95,6 +95,7 @@ class Coach:
                         else:
                             tie += 1
                         break
+                pbar.set_description(f"Training: win={self.agent.score}; loss={sensei.score}; tie={tie}")
         return self.agent.score - sensei.score
 
 
