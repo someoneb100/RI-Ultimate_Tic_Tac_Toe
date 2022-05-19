@@ -111,5 +111,5 @@ class Coach:
         model_handler.save_model(self.agent.model, score)
         
 if __name__ == "__main__":
-    coach = Coach(model_handler.load_newest_model())
+    coach = Coach(model_handler.load_best_model())
     coach.training_session()

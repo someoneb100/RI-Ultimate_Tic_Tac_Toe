@@ -19,7 +19,7 @@ class Agent:
             should_flip = True
             self.env.flip()
 
-        if(np.random.rand() > RANDOM_FACTOR):
+        if(training and np.random.rand() > RANDOM_FACTOR):
             probs, v = MonteCarlo(self.model,self.env).getActionProb()
             if training :
                 self.memory.append((self.env.board, self.env.get_categorical_allowed_field(), probs, v))   
