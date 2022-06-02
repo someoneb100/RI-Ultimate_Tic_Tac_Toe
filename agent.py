@@ -12,6 +12,7 @@ class Agent:
         self.env = env
         self.memory = deque(maxlen=MEMORY_SIZE)
         self.target_update_counter = 0 #pratimo kad je vreme da updateujemo target_model
+        self.r = False
         
     def play_action(self, training: bool = False) -> FieldState:
         should_flip = False
@@ -19,7 +20,7 @@ class Agent:
             should_flip = True
             self.env.flip()
 
-        if(training and np.random.rand() > RANDOM_FACTOR):
+        if(not training or not self.r or np.random.rand() > RANDOM_FACTOR):
             probs, v = MonteCarlo(self.model,self.env).getActionProb()
             if training :
                 self.memory.append((self.env.board, self.env.get_categorical_allowed_field(), probs, v))   
@@ -53,8 +54,4 @@ class Agent:
             probs[i] = prob
             vs[i] = v
         self.model.fit((boards,allowed_fields),(probs,vs), batch_size = BATCH_SIZE, verbose=0, shuffle=False)
-        
-        
-        
-        
-    
+        self.r = False

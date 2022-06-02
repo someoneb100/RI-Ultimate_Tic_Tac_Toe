@@ -55,7 +55,7 @@ class MonteCarlo():
         
         # ako je novootkriveno stanje pozivamo model
         if s not in self.Ps:
-            ps, v = self.model.predict([np.reshape(self.env.board, (1,9,9)), np.reshape(self.env.get_categorical_allowed_field(), (1,9))])
+            ps, v = self.model.predict([np.reshape(self.env.board, (1,9,9)), np.reshape(self.env.get_categorical_allowed_field(), (1,9))], verbose = 0)
             self.Ps[s], v = ps[0], v[0]
             self.Qsa[s] = get_initial_qsa(env.get_valid_actions())
             self.Nsa[s] = np.zeros(81, dtype=np.int32)
