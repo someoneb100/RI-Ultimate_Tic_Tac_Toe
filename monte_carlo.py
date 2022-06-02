@@ -79,7 +79,9 @@ class MonteCarlo():
         self.Ns[s] = self.Ns.get(s,0) + 1
         return -v
         
-        
-        
+# Klasa za testiranje koja samo uvek za sve vraca jednake verovatnoce
+class SimpleModel:
+    def predict(self, *args, **kwargs):
+        return [np.ones(81, dtype=np.float64)/81], [0]
         
         

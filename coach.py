@@ -63,13 +63,14 @@ class Coach:
         self.env = UltimateTicTacToe()
         self.agent = Agent(model, self.env)
 
-    def duel(self) -> int:
-        sensei = model_handler.load_best_model()
+    def duel(self, sensei = None, duel_length = DUEL_LENGTH) -> int:
+        if sensei is None:
+            sensei = model_handler.load_best_model()
         if sensei is None:
             return 0
         sensei = Agent(sensei, self.env)
         sensei.score, self.agent.score, tie = 0, 0, 0
-        with trange(DUEL_LENGTH) as pbar:
+        with trange(duel_length) as pbar:
             pbar.set_description(f"Training: win={self.agent.score}; loss={sensei.score}; tie={tie}")
             for i in pbar:
                 self.env.reset()
