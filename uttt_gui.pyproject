@@ -1,0 +1,6 @@
+{
+    "files": ["mainwindow.py", "form.ui", "agent.py",
+        "coach.py", "config.py", "model_handler.py",
+        "monte_carlo.py", "uttt.py"
+    ]
+}

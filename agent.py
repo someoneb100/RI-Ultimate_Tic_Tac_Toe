@@ -11,8 +11,8 @@ class Agent:
         self.model = model
         self.env = env
         self.memory = deque(maxlen=MEMORY_SIZE)
-        self.target_update_counter = 0 #pratimo kad je vreme da updateujemo target_model
         self.r = False
+        self.action = -1
         
     def play_action(self, training: bool = False) -> FieldState:
         should_flip = False
@@ -31,7 +31,8 @@ class Agent:
             choices = np.arange(len(probs))[np.abs(probs-probsmax)<=EPS]
         else:
             choices = self.env.get_valid_actions()
-        reward, _ = self.env.play(np.random.choice(choices))
+        self.action = np.random.choice(choices)
+        reward, _ = self.env.play(self.action)
         if not self.env.done:
             return FieldState.EMPTY
         if reward == 0:
