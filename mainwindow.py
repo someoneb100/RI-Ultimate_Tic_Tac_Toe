@@ -49,6 +49,7 @@ class Field (QGraphicsItem):
         self.parent = parent
 
     def mousePressEvent(self, event):
+        global widget
         env = self.parent.parent.env
         game_mode = self.parent.parent.game_mode
         user = self.parent.parent.user
@@ -62,14 +63,14 @@ class Field (QGraphicsItem):
                             self.state = env.player_turn
                             env.play(self.parent.index_in_board, self.index_in_miniboard)
                             if env.allowed_mini_boards[self.parent.index_in_board] == FieldState.FIRST.value:
-                                self.parent.state = FieldState.FIRST.value
+                                self.parent.setState(FieldState.FIRST.value)
                             elif env.allowed_mini_boards[self.parent.index_in_board] == FieldState.SECOND.value:
-                                self.parent.state = FieldState.SECOND.value
+                                self.parent.setState(FieldState.SECOND.value)
                             if env.done:
                                 print("done")
-                                self.update()
+                                widget.ui.mainGV.viewport().repaint()
                                 return
-                            self.update()
+                            widget.ui.mainGV.viewport().repaint()
                             self.parent.parent.model_play()
 
     def boundingRect(self):
@@ -97,35 +98,40 @@ class MiniBoard (QGraphicsItem):
         self.parent = parent
         self.state = FieldState.EMPTY.value
 
+    def setState(self, state):
+        self.state = state
+        for i in range(9):
+            self.fields[i].hide()
 
     def boundingRect(self):
         return QRectF(0, 0, MINIBOARD_SIZE, MINIBOARD_SIZE)
 
     def paint(self, painter, option, widget):
-        painter.fillRect(self.boundingRect(), QColor(200, 200, 200))
         painter.setPen(QColor(0, 0, 0))
-        painter.drawLine(
-            FIELD_SIZE + 3*GAP / 2, GAP,
-            FIELD_SIZE + 3*GAP / 2, MINIBOARD_SIZE - GAP
-        )
-        painter.drawLine(
-            2*FIELD_SIZE + 5*GAP / 2, GAP,
-            2*FIELD_SIZE + 5*GAP / 2, MINIBOARD_SIZE - GAP
-        )
-        painter.drawLine(
-            GAP, FIELD_SIZE + 3*GAP / 2,
-            MINIBOARD_SIZE - GAP, FIELD_SIZE + 3*GAP / 2
-        )
-        painter.drawLine(
-            GAP, 2*FIELD_SIZE + 5*GAP / 2,
-            MINIBOARD_SIZE - GAP, 2*FIELD_SIZE + 5*GAP / 2
-        )
-        for i in range(3):
-            for j in range(3):
-                self.fields[3*i + j].setPos(
-                    GAP + FIELD_SIZE*i + GAP*i,
-                    GAP + FIELD_SIZE*j + GAP*j
-                )
+        if self.state == FieldState.EMPTY.value:
+            painter.fillRect(self.boundingRect(), QColor(200, 200, 200))
+            painter.drawLine(
+                FIELD_SIZE + 3*GAP / 2, GAP,
+                FIELD_SIZE + 3*GAP / 2, MINIBOARD_SIZE - GAP
+            )
+            painter.drawLine(
+                2*FIELD_SIZE + 5*GAP / 2, GAP,
+                2*FIELD_SIZE + 5*GAP / 2, MINIBOARD_SIZE - GAP
+            )
+            painter.drawLine(
+                GAP, FIELD_SIZE + 3*GAP / 2,
+                MINIBOARD_SIZE - GAP, FIELD_SIZE + 3*GAP / 2
+            )
+            painter.drawLine(
+                GAP, 2*FIELD_SIZE + 5*GAP / 2,
+                MINIBOARD_SIZE - GAP, 2*FIELD_SIZE + 5*GAP / 2
+            )
+            for i in range(3):
+                for j in range(3):
+                    self.fields[3*i + j].setPos(
+                        GAP + FIELD_SIZE*i + GAP*i,
+                        GAP + FIELD_SIZE*j + GAP*j
+                    )
         if self.state == FieldState.FIRST.value:
             painter.drawLine(GAP,GAP,MINIBOARD_SIZE - GAP, MINIBOARD_SIZE - GAP)
             painter.drawLine(MINIBOARD_SIZE - GAP, GAP, GAP, MINIBOARD_SIZE - GAP)
@@ -144,24 +150,33 @@ class Board (QGraphicsItem):
         self.user = FieldState.EMPTY.value
         self.agent = None
 
+    def setState(self, state):
+        self.state = state
+        for i in range(9):
+            self.mini_boards[i].hide()
+
     def boundingRect(self):
         return QRectF(0, 0, BOARD_SIZE, BOARD_SIZE)
 
     def model_play(self):
+        global widget
+        if self.game_mode == GameMode.MVM:
+            turn = self.env.player_turn
+        else:
+            turn = change_player(self.user)
         self.agent.play_action()
         action = self.agent.action
         a, b = action//9, action % 9
         mb = (a//3)*3 + b//3
         f = (a % 3)*3 + b % 3
-        turn = change_player(self.user)
         self.mini_boards[mb].fields[f].state = turn
         if self.env.allowed_mini_boards[mb] == FieldState.FIRST.value:
-            self.mini_boards[mb].state = FieldState.FIRST.value
+            self.mini_boards[mb].setState(FieldState.FIRST.value)
         elif self.env.allowed_mini_boards[mb] == FieldState.SECOND.value:
-            self.mini_boards[mb].state = FieldState.SECOND.value
+            self.mini_boards[mb].setState(FieldState.SECOND.value)
         if self.env.done:
             print("done")
-        self.mini_boards[mb].fields[f].update()
+        widget.ui.mainGV.viewport().repaint()
 
 
     def Model_Vs_Model(self):
@@ -169,7 +184,19 @@ class Board (QGraphicsItem):
         self.env.reset()
         newest = load_newest_model()
         best = load_best_model()
-
+        newest_agent = Agent(newest,self.env)
+        best_agent = Agent(best,self.env)
+        while(True):
+            self.agent = newest_agent
+            self.model_play()
+            if self.env.done:
+                print("done")
+                break
+            self.agent = best_agent
+            self.model_play()
+            if self.env.done:
+                print("done")
+                break
 
     def Model_Vs_User(self):
         self.env.reset()
@@ -177,6 +204,7 @@ class Board (QGraphicsItem):
         self.user = FieldState.SECOND.value
         model = load_best_model()
         self.agent = Agent(model, self.env)
+        self.model_play()
 
 
     def User_Vs_Model(self):
@@ -233,6 +261,7 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    global widget
     QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     app = QApplication([])
     widget = MainWindow()
